@@ -3,16 +3,61 @@
 	include_once '..\model\entity\senha.php';
 	
 	class DAO_senha{
-	
-		private $senha;
 		
-		public function ChamarProximaSenha(){
+		public function gerarNovaSenha($senha){
 			$conexao = new conection();
 			$pdo = $conexao -> criaPDO();
 			$pdo->beginTransaction();
 			
-			//Busca próxima senha a ser atendida
-			$stmt = $pdo->prepare("select * from controleSenha where atendendo is null order by preferencial desc, posicao limit :limite;");
+			$stmt = $pdo->prepare("insert into controleSenha (posicao, preferencial) values (:posicao, :preferencial)");
+			$param1 = $senha->getPosicao();
+			$param2 = $senha->getPreferencial();
+			$stmt->bindParam(':posicao', $param1,PDO::PARAM_INT);
+			$stmt->bindParam(':preferencial', $param2,PDO::PARAM_INT);
+			if (!$stmt->execute()) {
+				$pdo->rollback();
+				throw new Exception("Erro interno ao gerar nova senha");
+			}
+			
+			$pdo->commit();
+			return $senha;
+		}
+		
+		public function buscaUltimaSenhaGerada($preferencial) {
+			$conexao = new conection();
+			$pdo = $conexao -> criaPDO();
+			$pdo->beginTransaction();
+			
+			$stmt = $pdo->prepare("select * from Paripassu.controleSenha where codigo = (select max(codigo) from Paripassu.controleSenha where preferencial = :preferencial);");
+			$param1 = ($preferencial) ? 1 : 0;
+			$stmt->bindParam(':preferencial', $param1,PDO::PARAM_INT);
+			if($stmt->execute()){
+				if($stmt->rowCount() > 0){
+					while($row = $stmt->fetch(PDO::FETCH_OBJ)){
+						$senha = new Senha($row->codigo, $row->posicao, $row->preferencial);
+					}
+				} else {
+					$pdo->rollback();
+					$retorno  = "Não há registro de senhas anteriores, para o tipo \"";
+					$retorno .= ($preferencial) ? "Preferencial" : "Normal";
+					$retorno .= "\".";
+					return $retorno;
+				}
+			} else {
+				$pdo->rollback();
+				throw new Exception("Erro interno ao consultar próxima senha a ser atendida");
+			}
+			
+			$pdo->commit();
+			return $senha;
+		}
+		
+		public function chamarProximaSenha(){
+			$conexao = new conection();
+			$pdo = $conexao -> criaPDO();
+			$pdo->beginTransaction();
+			
+			$stmt = $pdo->prepare("select * from Paripassu.controleSenha where atendendo is null order by preferencial desc, codigo limit :limite;");
 			$param1 = 1;
 			$stmt->bindParam(':limite', $param1,PDO::PARAM_INT);
 			if($stmt->execute()){
@@ -22,23 +67,14 @@
 					}
 				} else {
 					$pdo->rollback();
-					return "Não há senhas não atendidas";
+					$retorno  = "Não há registro de novas senhas para serem atendidas.";
+					return $retorno;
 				}
 			} else {
 				$pdo->rollback();
-				return "Erro interno ao consultar próxima senha a ser atendida";
+				throw new Exception("Erro interno ao consultar próxima senha a ser atendida");
 			}
 			
-			//Exclui senhas já atendidas
-			$stmt = $pdo->prepare("delete from controleSenha where atendendo = :atendendo;");
-			$param1 = 1;
-			$stmt->bindParam(':atendendo', $param1,PDO::PARAM_INT);
-			if (!$stmt->execute()) {
-				$pdo->rollback();
-				return "Erro interno ao consultar próxima senha a ser atendida";
-			}
-			
-			//Marca a próxima senha como sendo atendida
 			$stmt = $pdo->prepare("update controleSenha set atendendo = :atendendo where codigo = :codigo;");
 			$param1 = 1;
 			$param2 = $senha->getCodigo();
@@ -46,20 +82,19 @@
 			$stmt->bindParam(':codigo', $param2,PDO::PARAM_INT);
 			if (!$stmt->execute()) {
 				$pdo->rollback();
-				return "Erro interno ao consultar próxima senha a ser atendida";
+				throw new Exception("Erro interno ao consultar próxima senha a ser atendida");
 			}
 			
 			$pdo->commit();
 			return $senha;
 		}
 		
-		public function ConsultarSenhaAtual(){
+		public function buscaUltimaSenhaChamada(){
 			$conexao = new conection();
 			$pdo = $conexao -> criaPDO();
 			$pdo->beginTransaction();
 			
-			//Busca próxima senha a ser atendida
-			$stmt = $pdo->prepare("select * from controleSenha where atendendo is not null;");
+			$stmt = $pdo->prepare("select * from Paripassu.controleSenha where codigo = (select max(codigo) from Paripassu.controleSenha where atendendo is not null);");
 			if($stmt->execute()){
 				if($stmt->rowCount() > 0){
 					while($row = $stmt->fetch(PDO::FETCH_OBJ)){
@@ -67,72 +102,32 @@
 					}
 				} else {
 					$pdo->rollback();
-					return "Não há senhas sendo atendidas";
+					$retorno  = "Não há registro de senhas atendidas anteriormente.";
+					return $retorno;
 				}
 			} else {
 				$pdo->rollback();
-				return "Erro interno ao consultar a senha sendo atendida";
+				throw new Exception("Erro interno ao consultar próxima senha a ser atendida");
 			}
 			
 			$pdo->commit();
 			return $senha;
 		}
 		
-		public function GerarNovaSenha($preferencial){
+		public function reiniciarSenhas(){
 			$conexao = new conection();
 			$pdo = $conexao -> criaPDO();
 			$pdo->beginTransaction();
 			
-			//Busca próxima senha a ser atendida
-			$stmt = $pdo->prepare("select * from controleSenha where preferencial = :preferencial and atendendo is null order by posicao desc limit :limite;");
-			$param1 = ($preferencial) ? 1 : 0;
-			$param2 = 1;
-			$stmt->bindParam(':preferencial', $param1,PDO::PARAM_INT);
-			$stmt->bindParam(':limite', $param2,PDO::PARAM_INT);
-			if($stmt->execute()){
-				if($stmt->rowCount() > 0){
-					while($row = $stmt->fetch(PDO::FETCH_OBJ)){
-						$posicao = $row->posicao;
-						if($posicao >= 9999){
-							$pdo->rollback();
-							$retorno  = "O número máximo de senhas foi atingido, para senhas te tipo \"";
-							$retorno .= ($preferencial) ? "Preferencial" : "Normal";
-							$retorno .= "\".\nFavor, solicite ao gerente uma nova senha.";
-							return $retorno;
-						} else {
-							$senha = new Senha($row->codigo, $row->posicao, $row->preferencial);
-						}
-					}
-				} else {
-					$senha = new Senha(0, 1, $param1);
-				}
-			} else {
-				$pdo->rollback();
-				return "Erro interno ao consultar próxima senha a ser atendida";
-			}
-			
-			//Inserir nova senha
-			$stmt = $pdo->prepare("insert into controleSenha (posicao, preferencial) values (:posicao, :preferencial)");
-			$senha->setPosicao($senha->getPosicao() + 1);
-			$param1 = $senha->getPosicao();
-			$param2 = $senha->getPreferencial();
-			$stmt->bindParam(':posicao', $param1,PDO::PARAM_INT);
-			$stmt->bindParam(':preferencial', $param2,PDO::PARAM_INT);
-			
+			$stmt = $pdo->prepare("delete from controleSenha where atendendo is not null;");
 			if (!$stmt->execute()) {
 				$pdo->rollback();
-				return "Erro interno ao gerar nova senha";
+				throw new Exception("Erro interno ao reiniciar as senhas");
 			}
 			
 			$pdo->commit();
-			return $senha;
+			return "Reiniciado senhas com sucesso";
 		}
 		
-		/**/
-		
-		public function ReiniciarSenhas(){
-			return new Senha(1, false);
-		}
-	
 	}
 ?>

@@ -2,28 +2,27 @@
 <html>
 	<head>
 		<meta charset="UTF-8">
-		<link rel="stylesheet" type="text/css" href="css/style.css" />
 		<title>Título</title>
+		<script language="javascript" type="text/javascript">
+			function ajaxFunction(param){
+				var ajaxRequest;  // The variable that makes Ajax possible!
+				ajaxRequest = new XMLHttpRequest();
+				ajaxRequest.onreadystatechange = function(){
+					if(ajaxRequest.readyState == 4){
+						var ajaxDisplay = document.getElementById('senha');
+						ajaxDisplay.innerHTML = ajaxRequest.responseText;
+					}
+				}
+				ajaxRequest.open("GET", "view/view_cliente.php", true);
+				ajaxRequest.send(null);
+			}
+		</script>
 	</head>
 	<body>
-			<header><h2>Home</h2></header>
-		<section>
-			<form name="form_home" id="form_home" action="controller\contr_home.php" method="post">
-				<table id = "botoes">
-					<tr>
-						<th>
-							<input type="submit" name="opcao" value="Painel"/>
-						</th>
-						<th>
-							<input type="submit" name="opcao" value="Terminal"/>
-						</th>
-					</tr>
-				</table>
-			</form>
-		</section>
-			<footer><p>Footer</p></footer>
+		<form name="form_terminal" id="form_terminal" action="controller\contr_terminal.php" method="post">
+			<input type="submit" name="opcao" value="Gerente"/>
+			<br>
+			<input type="submit" name="opcao" value="Cliente"/>
+		</form>
 	</body>
 </html>
-
-<?php
-?>
