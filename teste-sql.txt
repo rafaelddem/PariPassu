@@ -1,0 +1,11 @@
+Seu nome: Rafael Delfino de Medeiros
+
+1) select * from en_filme order by data_lancamento limit 1;
+
+2) select c.id_cliente, c.nome, count(a.id_aluguel) as alugueis 
+from en_aluguel a right join en_cliente c on a.id_cliente = c.id_cliente
+group by c.nome order by alugueis;
+
+3) select c.id_cliente, c.nome, count(a.id_aluguel) as alugueis, format(sum(a.valor), 2) as total_gasto, year(a.data_aluguel) as ano 
+from en_aluguel a left join en_cliente c on a.id_cliente = c.id_cliente
+group by c.id_cliente, ano order by a.valor desc;
